@@ -28,7 +28,9 @@ def convert_box_type(boxes,input_box_type = 'Kitti'):
         new_boxes[:, 2] += boxes[:, 0] / 2
         return new_boxes
 
-def get_mesh_boxes(boxes, colors="red",
+def get_mesh_boxes(boxes, 
+                   traffic_participant_positions,
+                   colors="red",
                    mesh_alpha=0.4,
                    ids=None,
                    show_ids=False,
@@ -38,7 +40,7 @@ def get_mesh_boxes(boxes, colors="red",
     vtk_boxes_list = []
     for i in range(len(boxes)):
         box = boxes[i]
-        print("Box info : ", box)
+        # print("Box info : ", box)
         angle = box[6]
         new_angle = (angle / np.pi) * 180
 
@@ -66,10 +68,12 @@ def get_mesh_boxes(boxes, colors="red",
             vtk_boxes_list.append(label)
 
             position_info =  f"({box[0]:.2}, {box[1]:.2}, {box[2]:.2})"
+            traffic_participant_positions.append([ box[0], box[1], box[2], 1.0 ]) # will be using the Homogenous coord transformation
             label_pos = [box[0], box[1], box[2] + box[5] / 2]
             label = Text3D(position_info, pos=label_pos, s=0.3, c=this_c, font="Calco", justify='centered')
             vtk_boxes_list.append(label)
 
+    traffic_participant_positions = np.asarray(traffic_participant_positions)
     return vtk_boxes_list
 
 

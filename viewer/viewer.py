@@ -4,6 +4,9 @@ import cv2
 import vtk
 from .color_map import generate_objects_color_map,generate_objects_colors,generate_scatter_colors
 from .box_op import convert_box_type,get_line_boxes,get_mesh_boxes,velo_to_cam,get_box_points
+from pyproj import Transformer
+import os
+from matplotlib import pyplot as plt
 
 class Viewer:
     """
@@ -154,7 +157,80 @@ class Viewer:
         else:
             self.actors_without_del.append(Spheres(points,r=radius,res=res,c=colors,alpha=alpha))
 
-    def add_3D_boxes(self,boxes=None,
+    def get_calib_data(self, file_path=None, key=None):
+        """
+            checks the calib.txt file and returns the data if the key matched the first element
+
+            for a file ahving this frame:
+                Tr_imu_velo 9.999976000000e-01 7.553071000000e-04 -2.035826000000e-03 -8.086759000000e-01 -7.854027000000e-04 9.998898000000e-01 -1.482298000000e-02 3.195559000000e-01 2.024406000000e-03 1.482454000000e-02 9.998881000000e-01 -7.997231000000e-01  
+        
+            get_calib_data(calib.txt, key="Tr_imu_velo") returns 9.999976000000e-01 7.553071000000e-04 -2.035826000000e-03 -8.086759000000e-01 ...........
+
+            post processing like reshpaing, adding extra row, should be handled by the user
+        """
+        required_frame = []
+        try:
+            with open(file_path, 'r') as file:
+                for line in file:
+                    line = line.strip()
+                    frame_data = line.split()
+ 
+                    if key == frame_data[0]:
+                        required_frame = frame_data[1:]
+                        break
+
+            required_data = [float(data) for data in required_frame]
+
+            return np.asarray(required_data)
+        
+        except FileNotFoundError:
+            print(f"Error: The file '{file_path}' was not found.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+
+    def get_gps_coords(self, file_path=None):
+        """
+            input: 
+                @filepath: input GPS+IMU file which has got the GPS info
+            output:
+                return GPS coords in Numpy array (N,3) ; (N points with each (x,y,z) coords)
+        
+        """
+        transformer = Transformer.from_crs('EPSG:4326', 'EPSG:25832', always_xy=True) # convert from lat-long to XY
+        gps_coords = [] # stores (x,y,z) tuples of the GPS data
+        vehicle_rotation = []
+
+        try:
+            with open(file_path, 'r') as file:
+                for line in file:
+                    line = line.strip()
+                    frame_data = line.split()
+
+                    lat = float(frame_data[0])
+                    long = float(frame_data[1])
+
+                    x, y = transformer.transform(long, lat)
+                    z = float(frame_data[2])
+                    gps_coords.append( [x, y, z] )
+
+                    # all in radians
+                    vehicle_roll =  float(frame_data[3])
+                    vehicle_pitch = float(frame_data[4])
+                    vehicle_yaw =   float(frame_data[5])
+
+                    vehicle_rotation.append( [vehicle_roll, vehicle_pitch, vehicle_yaw] )
+
+        except FileNotFoundError:
+            print(f"Error: The file '{file_path}' was not found.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+        return np.asarray(gps_coords), np.asarray(vehicle_rotation)
+
+    def add_3D_boxes(self, imu_T_velo,
+                     traffic_participant_positions,
+                     boxes=None,
                      ids=None,
                      box_info=None,
                      color="blue",
@@ -176,6 +252,7 @@ class Viewer:
                      ):
         """
         add the boxes actor to viewer
+        :imu_T_velo: (4,4) R|T matrix that transforms IMU data to velodyne frame
         :param boxes: (array(N,7)), 3D boxes
         :param ids: list(N,), the ID of each box
         :param box_info: (list(N,)), a list of str, the infos of boxes to show
@@ -213,6 +290,7 @@ class Viewer:
         if add_to_3D_scene:
             if del_after_show:
                 self.actors += get_mesh_boxes(boxes,
+                                              traffic_participant_positions,
                                               colors,
                                               mesh_alpha,
                                               ids,
