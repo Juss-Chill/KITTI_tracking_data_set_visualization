@@ -3,8 +3,8 @@ import numpy as np
 from dataset.kitti_dataset import KittiDetectionDataset
 
 def kitti_viewer():
-    root=r"L:\data\kitti\detection\kitti\training"
-    label_path = r"L:\data\kitti\detection\kitti\training\label_2"
+    root=r"/home/asl/Muni/datasets/KITTI/Tracking"
+    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels"
     dataset = KittiDetectionDataset(root,label_path)
 
     vi = Viewer(box_type="Kitti")

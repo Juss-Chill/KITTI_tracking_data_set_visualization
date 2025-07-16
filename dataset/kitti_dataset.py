@@ -7,8 +7,8 @@ class KittiDetectionDataset:
     def __init__(self,root_path,label_path = None):
         self.root_path = root_path
         self.velo_path = os.path.join(self.root_path,"velodyne")
-        self.image_path = os.path.join(self.root_path,"image_2")
-        self.calib_path = os.path.join(self.root_path,"calib")
+        # self.image_path = os.path.join(self.root_path,"image_2")
+        # self.calib_path = os.path.join(self.root_path,"calib")
         if label_path is None:
             self.label_path = os.path.join(self.root_path, "label_2")
         else:
@@ -23,24 +23,26 @@ class KittiDetectionDataset:
         name = str(item).zfill(6)
 
         velo_path = os.path.join(self.velo_path,name+'.bin')
-        image_path = os.path.join(self.image_path, name+'.png')
-        calib_path = os.path.join(self.calib_path, name+'.txt')
+        # image_path = os.path.join(self.image_path, name+'.png')
+        # calib_path = os.path.join(self.calib_path, name+'.txt')
         label_path = os.path.join(self.label_path, name+".txt")
 
-        P2,V2C = read_calib(calib_path)
-        points = read_velodyne(velo_path,P2,V2C)
-        image = read_image(image_path)
+        # P2,V2C = read_calib(calib_path)
+        # points = read_velodyne(velo_path,P2,V2C)
+        points = read_velodyne(velo_path)
+        # image = read_image(image_path)
         labels,label_names = read_detection_label(label_path)
-        labels[:,3:6] = cam_to_velo(labels[:,3:6],V2C)[:,:3]
+        # labels[:,3:6] = cam_to_velo(labels[:,3:6],V2C)[:,:3]
 
-        return P2,V2C,points,image,labels,label_names
+        # return P2,V2C,points,image,labels,label_names
+        return points,labels,label_names
 
 class KittiTrackingDataset:
     def __init__(self,root_path,seq_id,label_path=None):
         self.seq_name = str(seq_id).zfill(4)
         self.root_path = root_path
         self.velo_path = os.path.join(self.root_path,"velodyne",self.seq_name)
-        self.image_path = os.path.join(self.root_path,"image_02",self.seq_name)
+        # self.image_path = os.path.join(self.root_path,"image_02",self.seq_name)
         self.calib_path = os.path.join(self.root_path,"calib",self.seq_name)
 
 
@@ -63,12 +65,12 @@ class KittiTrackingDataset:
         name = str(item).zfill(6)
 
         velo_path = os.path.join(self.velo_path,name+'.bin')
-        image_path = os.path.join(self.image_path, name+'.png')
+        # image_path = os.path.join(self.image_path, name+'.png')
 
 
 
         points = read_velodyne(velo_path,self.P2,self.V2C)
-        image = read_image(image_path)
+        # image = read_image(image_path)
 
         if item in self.labels.keys():
             labels = self.labels[item]
@@ -80,4 +82,5 @@ class KittiTrackingDataset:
             labels = None
             label_names = None
 
-        return self.P2,self.V2C,points,image,labels,label_names
+        # return self.P2,self.V2C,points,image,labels,label_names
+        return self.P2,self.V2C,points,labels,label_names

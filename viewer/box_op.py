@@ -28,57 +28,105 @@ def convert_box_type(boxes,input_box_type = 'Kitti'):
         new_boxes[:, 2] += boxes[:, 0] / 2
         return new_boxes
 
-def get_mesh_boxes(boxes,colors="red",
+def get_mesh_boxes(boxes, colors="red",
                    mesh_alpha=0.4,
                    ids=None,
                    show_ids=False,
                    box_info=None,
                    show_box_info=False,
-                   caption_size=(0.05,0.05)):
-    """
-    convert boxes array to vtk mesh boxes actors
-    :param boxes: (array(N,7)), unified boxes array
-    :param colors: (str or array(N,3)), boxes colors
-    :param mesh_alpha: boxes transparency
-    :param ids: list(N,), the ID of each box
-    :param show_ids: (bool), show object ids in the 3D scene
-    :param box_info: (list(N,)), a list of str, the infos of boxes to show
-    :param show_box_info: (bool)，show object infos in the 3D Scene
-    :return: (list(N,)), a list of vtk mesh boxes
-    """
+                   caption_size=(0.05, 0.05)):
     vtk_boxes_list = []
     for i in range(len(boxes)):
         box = boxes[i]
+        print("Box info : ", box)
         angle = box[6]
-
         new_angle = (angle / np.pi) * 180
 
-        if type(colors) is str:
-            this_c = colors
-        else:
-            this_c = colors[i]
-        vtk_box = Box(pos=(0, 0, 0), height=box[5], width=box[4], length=box[3], c=this_c, alpha=mesh_alpha)
-        vtk_box.rotateZ(new_angle)
+        this_c = colors if type(colors) is str else colors[i]
+
+        vtk_box = Box(pos=(0, 0, 0),
+                      height=box[5],
+                      width=box[4],
+                      length=box[3],
+                      c=this_c,
+                      alpha=mesh_alpha)
+        vtk_box.rotate_z(new_angle)
         vtk_box.pos(box[0], box[1], box[2])
-
-        info = ""
-        if ids is not None and show_ids :
-            info = "ID: "+str(ids[i])+'\n'
-        if box_info is not None and show_box_info:
-            info+=str(box_info[i])
-        if info !='':
-            vtk_box.caption(info,point=(box[0],
-                            box[1]-box[4]/4, box[2]+box[5]/2),
-                            size=caption_size,
-                            alpha=1,c=this_c,
-                            font="Calco",
-                            justify='left')
-            vtk_box._caption.SetBorder(False)
-            vtk_box._caption.SetLeader(False)
-
         vtk_boxes_list.append(vtk_box)
 
+        info = ""
+        if ids is not None and show_ids:
+            info = "ID: " + str(ids[i]) + '\n'
+        if box_info is not None and show_box_info:
+            info += str(box_info[i])
+
+        if info != '':
+            label_pos = [box[0], box[1], box[2] + box[5] / 2]
+            label = Text3D(info, pos=label_pos, s=caption_size[0]+0.5, c=this_c, font="Calco", justify='centered')
+            vtk_boxes_list.append(label)
+
+            position_info =  f"({box[0]:.2}, {box[1]:.2}, {box[2]:.2})"
+            label_pos = [box[0], box[1], box[2] + box[5] / 2]
+            label = Text3D(position_info, pos=label_pos, s=0.3, c=this_c, font="Calco", justify='centered')
+            vtk_boxes_list.append(label)
+
     return vtk_boxes_list
+
+
+# def get_mesh_boxes(boxes,colors="red",
+#                    mesh_alpha=0.4,
+#                    ids=None,
+#                    show_ids=False,
+#                    box_info=None,
+#                    show_box_info=False,
+#                    caption_size=(0.05,0.05)):
+#     """
+#     convert boxes array to vtk mesh boxes actors
+#     :param boxes: (array(N,7)), unified boxes array
+#     :param colors: (str or array(N,3)), boxes colors
+#     :param mesh_alpha: boxes transparency
+#     :param ids: list(N,), the ID of each box
+#     :param show_ids: (bool), show object ids in the 3D scene
+#     :param box_info: (list(N,)), a list of str, the infos of boxes to show
+#     :param show_box_info: (bool)，show object infos in the 3D Scene
+#     :return: (list(N,)), a list of vtk mesh boxes
+#     """
+#     vtk_boxes_list = []
+#     for i in range(len(boxes)):
+#         box = boxes[i]
+#         angle = box[6]
+
+#         new_angle = (angle / np.pi) * 180
+
+#         if type(colors) is str:
+#             this_c = colors
+#         else:
+#             this_c = colors[i]
+#         vtk_box = Box(pos=(0, 0, 0), height=box[5], width=box[4], length=box[3], c=this_c, alpha=mesh_alpha)
+#         vtk_box.rotate_z(new_angle)
+#         vtk_box.pos(box[0], box[1], box[2])
+
+#         info = ""
+#         if ids is not None and show_ids :
+#             info = "ID: "+str(ids[i])+'\n'
+#             # print("ID to be displayed: ", info)
+#         if box_info is not None and show_box_info:
+#             info+=str(box_info[i])
+#             # print(info)
+#         if info !='':
+#             vtk_box.caption(info,point=(box[0],
+#                             box[1]-box[4]/4, box[2]+box[5]/2),
+#                             size=caption_size,
+#                             alpha=1,c=this_c,
+#                             font="Calco",
+#                             justify='left')
+#             # vtk_box._caption.SetBorder(False)
+#             # vtk_box._caption.SetLeader(False)
+
+
+#         vtk_boxes_list.append(vtk_box)
+
+#     return vtk_boxes_list
 
 
 def get_line_boxes(boxes,

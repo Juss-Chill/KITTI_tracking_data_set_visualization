@@ -291,7 +291,7 @@ class Viewer:
                 if ob_id in self.tracks_actors_dict.keys():
                     previous_ori=self.tracks_actors_dict[ob_id].GetOrientation()[2]
                     self.tracks_actors_dict[ob_id].pos(0,0,0)
-                    self.tracks_actors_dict[ob_id].rotateZ(ang-previous_ori)
+                    self.tracks_actors_dict[ob_id].rotate_z(ang-previous_ori)
                     self.tracks_actors_dict[ob_id].pos(bb[0], bb[1], bb[2])
 
                     info = ""
@@ -320,7 +320,7 @@ class Viewer:
                     new_car.scale((0.12,0.3,0.3))
 
                     new_car.scale(size)
-                    new_car.rotateZ(ang)
+                    new_car.rotate_z(ang)
                     new_car.pos(bb[0], bb[1], bb[2])
 
                     new_car.c(color)
@@ -352,7 +352,7 @@ class Viewer:
                 new_car.scale((0.12, 0.3, 0.3))
 
                 new_car.scale(size)
-                new_car.rotateZ(ang)
+                new_car.rotate_z(ang)
                 new_car.pos(bb[0], bb[1], bb[2])
 
                 new_car.c(color)

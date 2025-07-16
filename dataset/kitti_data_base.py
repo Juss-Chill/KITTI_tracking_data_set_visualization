@@ -142,7 +142,8 @@ def read_tracking_label(path):
     return frame_dict,names_dict
 
 if __name__ == '__main__':
-    path = 'H:/dataset/traking/training/label_02/0000.txt'
-    labels,a = read_tracking_label(path)
+    # path = 'H:/dataset/traking/training/label_02/0000.txt'
+    path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/0001.txt"
+    labels,a = read_tracking_label(path) # dictionarues that are sorted in the frame wise order with 1. whole frame data, 2. class name
     print(a)
 
