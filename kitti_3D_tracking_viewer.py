@@ -51,50 +51,45 @@ def kitti_viewer():
             #No detections in this frame, continue to next frames
             continue
 
-        traffic_participant_id_positions = traffic_participant_positions.copy() # (id, vehicle positions) present in this frame
+        traffic_participant_id_class_positions = traffic_participant_positions.copy() # (id, vehicle positions) present in this frame
         
         traffic_participant_positions.clear()
-        for id_pos in traffic_participant_id_positions: # Ignore the first idx as it contains ID
-            traffic_participant_positions.append(id_pos[1])
+        for id_pos in traffic_participant_id_class_positions: # Ignore the first idx as it contains ID, 2nd idx as it contains class name
+            traffic_participant_positions.append(id_pos[2])
 
-         # postions of the traffic participants in the Velodyne frame
+        # postions of the traffic participants in the Velodyne frame
         traffic_participant_positions = np.asarray(traffic_participant_positions) # (N, 4) ; N positions with (x,y,z,1)
-        # print("Velo : ", np.asarray(traffic_participant_positions).shape)
 
-        # print(np.linalg.inv(imu_T_velo).shape ," , ", traffic_participant_positions.T.shape)
         # postions of the traffic participants in the IMU+GPS frame
         traffic_participant_positions_IMU = np.linalg.inv(imu_T_velo) @ traffic_participant_positions.T # shape = (4, N) ; each column gives the 3D coordinate
-        # print("IMU : ", np.asarray(traffic_participant_positions_IMU).shape)
 
         # postions of the traffic participants in the Earth frame (Global frame)
         xy = gps_coords[i]
         rpy = vehicle_rotation[i]
-        # print("XY : ", xy)
-        # print("RPY: ", rpy)
         rot = R.from_euler('ZYX', rpy)
         R_matrix = rot.as_matrix()
-        # print(R_matrix)
+
         IMU_T_Earth = np.eye(4)
         IMU_T_Earth[:3, :3] = R_matrix
         IMU_T_Earth[:, 3] = xy.T
-        # print(IMU_T_Earth)
+
         traffic_participant_positions_Map = (IMU_T_Earth @ traffic_participant_positions_IMU).T # (4X4) @ (4,N) = (4,N).T = (N,4)
-        # traffic_participant_positions_Map_all_frames.append(traffic_participant_positions_Map)
-        # print("After transformation : ", traffic_participant_positions_Map.shape)
-        # print(len(traffic_participant_id_positions), traffic_participant_positions_Map.shape)
+
 
         # in the Map dictionary, take the key = first index of traffic_participant_id_positions
         #                                 value = element of traffic_participant_positions_IMU at the same position as key
-        for id_pos, map_pos in zip(traffic_participant_id_positions, traffic_participant_positions_Map):
+        for id_class_pos, map_pos in zip(traffic_participant_id_class_positions, traffic_participant_positions_Map):
             # id_pos is a tuple of (id, position) ; (6, [52.36093521118164, 6.31562614440918, -1.238931655883789, 1.0])
             # map_pos is a 3D position ; [4.58891002e+05 5.42865701e+06 1.12153440e+02 1.00000000e+00]
-            
+            id, class_name, lln = id_class_pos[0], id_class_pos[1], id_class_pos[2]
 
             # check the existence of ID
-            if(id_pos[0] not in traffic_participant_positions_Map_all_frames.keys()):
-                traffic_participant_positions_Map_all_frames[id_pos[0]] = []
+            if(id not in traffic_participant_positions_Map_all_frames.keys()):
+                traffic_participant_positions_Map_all_frames[id] = {}
+                if(class_name not in traffic_participant_positions_Map_all_frames[id].keys()):
+                    traffic_participant_positions_Map_all_frames[id][class_name] = []
             
-            traffic_participant_positions_Map_all_frames[id_pos[0]].append(map_pos[:3]) # store only 3D coords
+            traffic_participant_positions_Map_all_frames[id][class_name].append(map_pos[:3]) # store only (class_name, 3D coords)
 
         vi.add_points(points[:,:3])
 
@@ -104,7 +99,7 @@ def kitti_viewer():
 
         # vi.show_2D()
 
-        # vi.show_3D()
+        vi.show_3D()
         # plt.scatter(gps_coords[:, 0], gps_coords[:, 1])
         # plt.scatter(traffic_participant_positions_Map[:,0],traffic_participant_positions_Map[:,1], color='r', marker = '*')
         # plt.show()
@@ -112,16 +107,18 @@ def kitti_viewer():
   
 
     #  plot GPS coords along with vehicle info
-    plt.scatter(gps_coords[:, 0], gps_coords[:, 1])
+    plt.scatter(gps_coords[:, 0], gps_coords[:, 1], label="Ego position")
+    plt.scatter(gps_coords[0,0], gps_coords[0,1],s=50, marker='D', c='red', label="start Ego position") # start location
+    plt.scatter(gps_coords[-1,0], gps_coords[-1,1],s=50, marker='D', c='g', label="End Ego position") # end location
 
     # choose diffent colors for different IDs
-    # cmap = plt.c
-
-    for id, pos_lst in traffic_participant_positions_Map_all_frames.items():
+    for id, class_pos_lst in traffic_participant_positions_Map_all_frames.items(): # key - ID, Value = (class, position_array)
         # print(id, " : ", pos_lst, type(pos_lst))
-        pos_arr = np.asarray(pos_lst)
-        plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,))
+        for class_info, pos_lst in traffic_participant_positions_Map_all_frames[id].items(): 
+            pos_arr = np.asarray(pos_lst)
+            plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,))
 
+    plt.legend()
     plt.show()
 
 if __name__ == '__main__':
