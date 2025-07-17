@@ -253,7 +253,7 @@ class Viewer:
         """
         add the boxes actor to viewer
         :imu_T_velo: (4,4) R|T matrix that transforms IMU data to velodyne frame
-        :param traffic_participant_positions: list that stores (Id, position) tuple in each frame
+        :param traffic_participant_positions: list that stores (Id, class_name, position) tuple in each frame
         :param boxes: (array(N,7)), 3D boxes
         :param ids: list(N,), the ID of each box
         :param box_info: (list(N,)), a list of str, the infos of boxes to show

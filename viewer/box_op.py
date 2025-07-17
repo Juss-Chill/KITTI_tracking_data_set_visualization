@@ -69,8 +69,8 @@ def get_mesh_boxes(boxes,
 
             position_info =  f"({box[0]:.2}, {box[1]:.2}, {box[2]:.2})"
             # print(position_info)
-            # traffic_participant_positions  sote the (Id, position) as a list of Tuples
-            traffic_participant_positions.append(( int(ids[i]) ,[ box[0], box[1], box[2], 1.0 ] )) # will be using the Homogenous coord transformation
+            # traffic_participant_positions  sote the (Id, class, position) as a list of Tuples
+            traffic_participant_positions.append(( int(ids[i]) , str(box_info[i]), [ box[0], box[1], box[2], 1.0 ] )) # will be using the Homogenous coord transformation
             label_pos = [box[0], box[1], box[2] + box[5] / 2]
             label = Text3D(position_info, pos=label_pos, s=0.3, c=this_c, font="Calco", justify='centered')
             vtk_boxes_list.append(label)
