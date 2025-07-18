@@ -8,10 +8,10 @@ from scipy.spatial.transform import Rotation as R
 
 def kitti_viewer():
     root=r"/home/asl/Muni/datasets/KITTI/Tracking"
-    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/0000.txt"
-    gps_imu_path = r"/home/asl/Muni/datasets/KITTI/Tracking/GPS_IMU/training/oxts/0000.txt" # relocate this data to Training folder
-    calib_data_path = r"/home/asl/Muni/datasets/KITTI/Tracking/calib/0000.txt"
-    dataset = KittiTrackingDataset(root,seq_id=0,label_path=label_path) # change the sq_id here
+    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/0001.txt"
+    gps_imu_path = r"/home/asl/Muni/datasets/KITTI/Tracking/GPS_IMU/training/oxts/0001.txt" # relocate this data to Training folder
+    calib_data_path = r"/home/asl/Muni/datasets/KITTI/Tracking/calib/0001.txt"
+    dataset = KittiTrackingDataset(root,seq_id=1,label_path=label_path) # change the sq_id here
 
     traffic_participant_positions_Map_all_frames = {} # key: ID, value: Positions
 
@@ -37,11 +37,12 @@ def kitti_viewer():
         try:
             P2, V2C, points, labels, label_names = dataset[i]
         except Exception as e:
-            print(f"An error occurred: {e}")
+            print(f"Frame skipped with error: {e}")
+            continue #skip the frame
         
 
         if labels is not None:
-            mask = (label_names=="Car") | ((label_names=="Cyclist")) | ((label_names=="Pedestrian")) | ((label_names=="Van"))
+            mask = (label_names=="Car") #| ((label_names=="Cyclist")) | ((label_names=="Pedestrian")) | ((label_names=="Van"))
             labels = labels[mask]
             label_names = label_names[mask]
             vi.add_3D_boxes(imu_T_velo, traffic_participant_positions, labels, ids=labels[:, -1].astype(int), box_info=label_names,caption_size=(0.09,0.09), show_ids=True)
@@ -99,7 +100,7 @@ def kitti_viewer():
 
         # vi.show_2D()
 
-        vi.show_3D()
+        # vi.show_3D()
         # plt.scatter(gps_coords[:, 0], gps_coords[:, 1])
         # plt.scatter(traffic_participant_positions_Map[:,0],traffic_participant_positions_Map[:,1], color='r', marker = '*')
         # plt.show()
@@ -116,7 +117,7 @@ def kitti_viewer():
         # print(id, " : ", pos_lst, type(pos_lst))
         for class_info, pos_lst in traffic_participant_positions_Map_all_frames[id].items(): 
             pos_arr = np.asarray(pos_lst)
-            plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,))
+            plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,), marker = 'X',label=str(class_info))
 
     plt.legend()
     plt.show()
