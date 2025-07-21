@@ -5,6 +5,7 @@ from pyproj import Transformer
 import os
 from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
+from ccma import CCMA
 
 def kitti_viewer():
     root=r"/home/asl/Muni/datasets/KITTI/Tracking"
@@ -14,6 +15,9 @@ def kitti_viewer():
     dataset = KittiTrackingDataset(root,seq_id=1,label_path=label_path) # change the sq_id here
 
     traffic_participant_positions_Map_all_frames = {} # key: ID, value: Positions
+
+    # smooting the participants trajectories
+    ccma = CCMA(w_ma=50, w_cc=100)
 
     vi = Viewer(box_type="Kitti")
     gps_coords, vehicle_rotation = vi.get_gps_coords(file_path=gps_imu_path)
@@ -56,7 +60,7 @@ def kitti_viewer():
         
         traffic_participant_positions.clear()
         for id_pos in traffic_participant_id_class_positions: # Ignore the first idx as it contains ID, 2nd idx as it contains class name
-            traffic_participant_positions.append(id_pos[2])
+            traffic_participant_positions.append(np.asarray(id_pos[2]))
 
         # postions of the traffic participants in the Velodyne frame
         traffic_participant_positions = np.asarray(traffic_participant_positions) # (N, 4) ; N positions with (x,y,z,1)
@@ -90,7 +94,7 @@ def kitti_viewer():
                 if(class_name not in traffic_participant_positions_Map_all_frames[id].keys()):
                     traffic_participant_positions_Map_all_frames[id][class_name] = []
             
-            traffic_participant_positions_Map_all_frames[id][class_name].append(map_pos[:3]) # store only (class_name, 3D coords)
+            traffic_participant_positions_Map_all_frames[id][class_name].append(np.asarray(map_pos[:3])) # store only (class_name, 3D coords)
 
         vi.add_points(points[:,:3])
 
@@ -112,12 +116,19 @@ def kitti_viewer():
     plt.scatter(gps_coords[0,0], gps_coords[0,1],s=50, marker='D', c='red', label="start Ego position") # start location
     plt.scatter(gps_coords[-1,0], gps_coords[-1,1],s=50, marker='D', c='g', label="End Ego position") # end location
 
+    # Preform Trajectory smooting using CCMA to reduce the noise
+    for id, class_pos_lst in traffic_participant_positions_Map_all_frames.items(): # key - ID, Value = (class, position_array)
+        # print(id, " : ", pos_lst, type(pos_lst))
+        for class_info, pos_lst in traffic_participant_positions_Map_all_frames[id].items(): 
+            pos_arr = ccma.filter(np.asarray(pos_lst))
+            traffic_participant_positions_Map_all_frames[id][class_info] = pos_arr
+            # plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,), marker = 'X') #,label=str(class_info)
+
     # choose diffent colors for different IDs
     for id, class_pos_lst in traffic_participant_positions_Map_all_frames.items(): # key - ID, Value = (class, position_array)
         # print(id, " : ", pos_lst, type(pos_lst))
         for class_info, pos_lst in traffic_participant_positions_Map_all_frames[id].items(): 
-            pos_arr = np.asarray(pos_lst)
-            plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,), marker = 'X',label=str(class_info))
+            plt.plot(pos_lst[:, 0], pos_lst[:, 1], lw=2, color = np.random.rand(3,), marker = 'X') #,label=str(class_in
 
     plt.legend()
     plt.show()
