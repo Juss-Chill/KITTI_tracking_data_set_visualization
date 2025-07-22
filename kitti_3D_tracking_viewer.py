@@ -7,17 +7,22 @@ from matplotlib import pyplot as plt
 from scipy.spatial.transform import Rotation as R
 from ccma import CCMA
 
+import pandas as pd
+
 def kitti_viewer():
     root=r"/home/asl/Muni/datasets/KITTI/Tracking"
-    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/0001.txt"
-    gps_imu_path = r"/home/asl/Muni/datasets/KITTI/Tracking/GPS_IMU/training/oxts/0001.txt" # relocate this data to Training folder
-    calib_data_path = r"/home/asl/Muni/datasets/KITTI/Tracking/calib/0001.txt"
-    dataset = KittiTrackingDataset(root,seq_id=1,label_path=label_path) # change the sq_id here
+    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/0002.txt"
+    gps_imu_path = r"/home/asl/Muni/datasets/KITTI/Tracking/GPS_IMU/training/oxts/0002.txt" # relocate this data to Training folder
+    calib_data_path = r"/home/asl/Muni/datasets/KITTI/Tracking/calib/0002.txt"
+    dataset = KittiTrackingDataset(root,seq_id=2,label_path=label_path) # change the sq_id here
+    
+    # Process the path to get the sequence number make it a file name
+    seq_id = label_path.split(sep='/')[-1].split(sep='.')[0]
+    res_path=r"/home/asl/Muni/datasets/KITTI/Tracking/dataset/" + f"{seq_id}.csv"
+
 
     traffic_participant_positions_Map_all_frames = {} # key: ID, value: Positions
-
-    # smooting the participants trajectories
-    ccma = CCMA(w_ma=50, w_cc=100)
+    ccma = CCMA(w_ma=50, w_cc=100)                    # smooting the participants trajectories
 
     vi = Viewer(box_type="Kitti")
     gps_coords, vehicle_rotation = vi.get_gps_coords(file_path=gps_imu_path)
@@ -46,7 +51,7 @@ def kitti_viewer():
         
 
         if labels is not None:
-            mask = (label_names=="Car") #| ((label_names=="Cyclist")) | ((label_names=="Pedestrian")) | ((label_names=="Van"))
+            mask = (label_names=="Car") | ((label_names=="Cyclist")) | ((label_names=="Pedestrian")) | ((label_names=="Van"))
             labels = labels[mask]
             label_names = label_names[mask]
             vi.add_3D_boxes(imu_T_velo, traffic_participant_positions, labels, ids=labels[:, -1].astype(int), box_info=label_names,caption_size=(0.09,0.09), show_ids=True)
@@ -124,14 +129,21 @@ def kitti_viewer():
             traffic_participant_positions_Map_all_frames[id][class_info] = pos_arr
             # plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,), marker = 'X') #,label=str(class_info)
 
+    # Parase the data into the Pandas DF to write it to CSV
+    data_dict = []
     # choose diffent colors for different IDs
     for id, class_pos_lst in traffic_participant_positions_Map_all_frames.items(): # key - ID, Value = (class, position_array)
         # print(id, " : ", pos_lst, type(pos_lst))
         for class_info, pos_lst in traffic_participant_positions_Map_all_frames[id].items(): 
             plt.plot(pos_lst[:, 0], pos_lst[:, 1], lw=2, color = np.random.rand(3,), marker = 'X') #,label=str(class_in
+            # print(pos_lst.shape)
+            data_dict.append({ "Track_ID":id, "vehicle_class":str(class_info), "path":pos_lst})
 
+    # convert to data frame and store it in CSV
+    pd.DataFrame(data_dict).to_csv(res_path, index=False)
+    # print(df.head())
     plt.legend()
-    plt.show()
+    # plt.show()
 
 if __name__ == '__main__':
     kitti_viewer()
