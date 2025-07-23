@@ -22,6 +22,7 @@ def kitti_viewer():
 
 
     traffic_participant_positions_Map_all_frames = {} # key: ID, value: Positions
+    traffic_participant_dimensions_dict = {}               # key: ID, value: Dimensions of detected objects
     ccma = CCMA(w_ma=50, w_cc=100)                    # smooting the participants trajectories
 
     vi = Viewer(box_type="Kitti")
@@ -43,6 +44,7 @@ def kitti_viewer():
         print("Frame : ", i)
         traffic_participant_positions = [] # move it above to store the data across all the frames
         traffic_participant_orientation = []
+        traffic_participant_dimensions = []
         # P2, V2C, points, image, labels, label_names = dataset[i]
         try:
             P2, V2C, points, labels, label_names = dataset[i]
@@ -55,12 +57,14 @@ def kitti_viewer():
             mask = (label_names=="Car") | ((label_names=="Cyclist")) | ((label_names=="Pedestrian")) | ((label_names=="Van"))
             labels = labels[mask]
             label_names = label_names[mask]
-            vi.add_3D_boxes(imu_T_velo, traffic_participant_positions, labels, ids=labels[:, -1].astype(int), box_info=label_names,caption_size=(0.09,0.09), show_ids=True)
+            vi.add_3D_boxes(imu_T_velo, traffic_participant_positions, traffic_participant_dimensions, labels, ids=labels[:, -1].astype(int), box_info=label_names,caption_size=(0.09,0.09), show_ids=True)
             # vi.add_3D_cars(labels, ids=labels[:, -1].astype(int), mesh_alpha=1, car_model_path="/home/asl/Muni/datasets/KITTI/visualization_code/3D-Detection-Tracking-Viewer/viewer/car.obj")
 
-        if(len(traffic_participant_positions) == 0):
+        if((len(traffic_participant_positions) == 0) | (len(traffic_participant_dimensions) == 0)):
             #No detections in this frame, continue to next frames
             continue
+
+        assert (len(traffic_participant_positions) == 0) == (len(traffic_participant_dimensions) == 0), "Mismatch in number of Bboxes and number of (x,y,z)'s"
 
         traffic_participant_id_class_positions = traffic_participant_positions.copy() # (id, vehicle positions) present in this frame
         
@@ -105,7 +109,7 @@ def kitti_viewer():
 
         # in the Map dictionary, take the key = first index of traffic_participant_id_positions
         #                                 value = element of traffic_participant_positions_IMU at the same position as key
-        for id_class_pos, map_pos in zip(traffic_participant_id_class_positions, traffic_participants_pose_Map):
+        for id_class_pos, map_pos, bbox_dim in zip(traffic_participant_id_class_positions, traffic_participants_pose_Map, traffic_participant_dimensions):
             # id_pos is a tuple of (id, position_heading) ; (6, [52.36093521118164, 6.31562614440918, -1.238931655883789, heading_in_rad])
             # map_pos is a 3D position+heading_in_rad ; [4.58891002e+05 5.42865701e+06 1.12153440e+02 heading_in_rad]
             id, class_name, lln = id_class_pos[0], id_class_pos[1], id_class_pos[2]
@@ -113,10 +117,13 @@ def kitti_viewer():
             # check the existence of ID
             if(id not in traffic_participant_positions_Map_all_frames.keys()):
                 traffic_participant_positions_Map_all_frames[id] = {}
+                traffic_participant_dimensions_dict[id] = []
                 if(class_name not in traffic_participant_positions_Map_all_frames[id].keys()):
                     traffic_participant_positions_Map_all_frames[id][class_name] = []
             
             traffic_participant_positions_Map_all_frames[id][class_name].append(np.asarray(map_pos)) # store only (class_name, 3D coords+heading_in_rad)
+            traffic_participant_dimensions_dict[id].append(np.asarray([bbox_dim[0], bbox_dim[1], bbox_dim[2]]))
+
 
         vi.add_points(points[:,:3])
 
@@ -167,11 +174,12 @@ def kitti_viewer():
             # Plot heading arrows
             plt.quiver(
                 x, y, dx, dy, 
-                angles='xy', scale_units='xy', scale=30, 
+                angles='xy', scale_units='xy', scale=1, 
                 color='black', width=0.005
             )
 
-            data_dict.append({ "Track_ID":id, "vehicle_class":str(class_info), "path":pos_arr})
+            dims_arr = np.asarray(traffic_participant_dimensions_dict[id])
+            data_dict.append({ "Track_ID":id, "vehicle_class":str(class_info), "path(x,y,z,heading)":pos_arr, "bbox_dims(lwh)":dims_arr})
 
     # convert to data frame and store it in CSV
     pd.DataFrame(data_dict).to_csv(res_path, index=False)

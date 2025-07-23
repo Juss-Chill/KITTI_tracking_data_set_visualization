@@ -230,6 +230,7 @@ class Viewer:
 
     def add_3D_boxes(self, imu_T_velo,
                      traffic_participant_positions,
+                     traffic_participant_dimensions,
                      boxes=None,
                      ids=None,
                      box_info=None,
@@ -292,6 +293,7 @@ class Viewer:
             if del_after_show:
                 self.actors += get_mesh_boxes(boxes,
                                               traffic_participant_positions,
+                                              traffic_participant_dimensions,
                                               colors,
                                               mesh_alpha,
                                               ids,

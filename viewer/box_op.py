@@ -30,6 +30,7 @@ def convert_box_type(boxes,input_box_type = 'Kitti'):
 
 def get_mesh_boxes(boxes, 
                    traffic_participant_positions,
+                   traffic_participant_dimensions,
                    colors="red",
                    mesh_alpha=0.4,
                    ids=None,
@@ -79,6 +80,7 @@ def get_mesh_boxes(boxes,
             # print(position_info)
             # traffic_participant_positions  sote the (Id, class, position_xyz, heading_yaw_radians) as a list of Tuples
             traffic_participant_positions.append(( int(ids[i]) , str(box_info[i]), [box[0], box[1], box[2]], angle ))
+            traffic_participant_dimensions.append([box[3], box[4], box[5]]) # (len, wid, height)
             label_pos = [box[0], box[1], box[2] + box[5] / 2]
             label = Text3D(position_info, pos=label_pos, s=0.3, c=this_c, font="Calco", justify='centered')
             vtk_boxes_list.append(label)
