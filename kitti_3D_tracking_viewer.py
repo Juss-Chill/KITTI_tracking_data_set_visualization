@@ -11,10 +11,10 @@ import pandas as pd
 
 def kitti_viewer():
     root=r"/home/asl/Muni/datasets/KITTI/Tracking"
-    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/0002.txt"
-    gps_imu_path = r"/home/asl/Muni/datasets/KITTI/Tracking/GPS_IMU/training/oxts/0002.txt" # relocate this data to Training folder
-    calib_data_path = r"/home/asl/Muni/datasets/KITTI/Tracking/calib/0002.txt"
-    dataset = KittiTrackingDataset(root,seq_id=2,label_path=label_path) # change the sq_id here
+    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/0000.txt"
+    gps_imu_path = r"/home/asl/Muni/datasets/KITTI/Tracking/GPS_IMU/training/oxts/0000.txt" # relocate this data to Training folder
+    calib_data_path = r"/home/asl/Muni/datasets/KITTI/Tracking/calib/0000.txt"
+    dataset = KittiTrackingDataset(root,seq_id=0,label_path=label_path) # change the sq_id here
     
     # Process the path to get the sequence number make it a file name
     seq_id = label_path.split(sep='/')[-1].split(sep='.')[0]
@@ -42,6 +42,7 @@ def kitti_viewer():
     for i in range(len(dataset)):
         print("Frame : ", i)
         traffic_participant_positions = [] # move it above to store the data across all the frames
+        traffic_participant_orientation = []
         # P2, V2C, points, image, labels, label_names = dataset[i]
         try:
             P2, V2C, points, labels, label_names = dataset[i]
@@ -64,14 +65,14 @@ def kitti_viewer():
         traffic_participant_id_class_positions = traffic_participant_positions.copy() # (id, vehicle positions) present in this frame
         
         traffic_participant_positions.clear()
-        for id_pos in traffic_participant_id_class_positions: # Ignore the first idx as it contains ID, 2nd idx as it contains class name
-            traffic_participant_positions.append(np.asarray(id_pos[2]))
+        traffic_participant_orientation.clear()
+        for id_pos in traffic_participant_id_class_positions:           # 0th idx has ID, 1st idx has class name
+            traffic_participant_positions.append(np.asarray(id_pos[2])) # 2nd idx has (x,y,z) in mts, 3rd idx has heading_in_rads
+            traffic_participant_orientation.append(np.asarray([0., 0., id_pos[3]])) # assuming Roll = Pitch = 0
 
         # postions of the traffic participants in the Velodyne frame
-        traffic_participant_positions = np.asarray(traffic_participant_positions) # (N, 4) ; N positions with (x,y,z,1)
-
-        # postions of the traffic participants in the IMU+GPS frame
-        traffic_participant_positions_IMU = np.linalg.inv(imu_T_velo) @ traffic_participant_positions.T # shape = (4, N) ; each column gives the 3D coordinate
+        traffic_participant_positions = np.asarray(traffic_participant_positions)       # (N, 3) ; N positions with (x,y,z)
+        traffic_participant_orientation = np.asarray(traffic_participant_orientation)   #(N, 3); N orientatins with (roll:0, pitch:0, yaw)
 
         # postions of the traffic participants in the Earth frame (Global frame)
         xy = gps_coords[i]
@@ -83,14 +84,30 @@ def kitti_viewer():
         IMU_T_Earth[:3, :3] = R_matrix
         IMU_T_Earth[:, 3] = xy.T
 
-        traffic_participant_positions_Map = (IMU_T_Earth @ traffic_participant_positions_IMU).T # (4X4) @ (4,N) = (4,N).T = (N,4)
+        VELO_T_EARTH = IMU_T_Earth @ np.linalg.inv(imu_T_velo) # Matrix that transforms data form Velo --> Earth frame
+        assert traffic_participant_positions.shape == traffic_participant_orientation.shape, "number of elements mismatch"
+        
+        traffic_participants_pose_Map = []
+        for i in range(len(traffic_participant_positions)):
+            # construct the object matrices in velo frame
+            traffic_ele_pose = np.eye(4)
+            traffic_ele_pose[:3, 3] = traffic_participant_positions[i].T
+            yaw = traffic_participant_orientation[i][2] # stored in (R, P, Y) format
+            traffic_ele_pose[:3, :3] = R.from_euler('zyx', [yaw, 0, 0]).as_matrix() # This is the object's frame i.e, [R | T] of the object in the velo frame assuming Roll = pitch = 0
+            pose_in_Earth_matrix = VELO_T_EARTH @ traffic_ele_pose # [R | T] in the earth frame
+
+            # Extract the position
+            pos_global = pose_in_Earth_matrix[:3, 3]
+            # Extract orientation
+            roll, pitch, heading = R.from_matrix(pose_in_Earth_matrix[:3, :3]).as_euler('zyx')
+            traffic_participants_pose_Map.append([pos_global[0], pos_global[1], pos_global[2], heading]) # store the (x,y,z,heading) in Earth frame
 
 
         # in the Map dictionary, take the key = first index of traffic_participant_id_positions
         #                                 value = element of traffic_participant_positions_IMU at the same position as key
-        for id_class_pos, map_pos in zip(traffic_participant_id_class_positions, traffic_participant_positions_Map):
-            # id_pos is a tuple of (id, position) ; (6, [52.36093521118164, 6.31562614440918, -1.238931655883789, 1.0])
-            # map_pos is a 3D position ; [4.58891002e+05 5.42865701e+06 1.12153440e+02 1.00000000e+00]
+        for id_class_pos, map_pos in zip(traffic_participant_id_class_positions, traffic_participants_pose_Map):
+            # id_pos is a tuple of (id, position_heading) ; (6, [52.36093521118164, 6.31562614440918, -1.238931655883789, heading_in_rad])
+            # map_pos is a 3D position+heading_in_rad ; [4.58891002e+05 5.42865701e+06 1.12153440e+02 heading_in_rad]
             id, class_name, lln = id_class_pos[0], id_class_pos[1], id_class_pos[2]
 
             # check the existence of ID
@@ -99,7 +116,7 @@ def kitti_viewer():
                 if(class_name not in traffic_participant_positions_Map_all_frames[id].keys()):
                     traffic_participant_positions_Map_all_frames[id][class_name] = []
             
-            traffic_participant_positions_Map_all_frames[id][class_name].append(np.asarray(map_pos[:3])) # store only (class_name, 3D coords)
+            traffic_participant_positions_Map_all_frames[id][class_name].append(np.asarray(map_pos)) # store only (class_name, 3D coords+heading_in_rad)
 
         vi.add_points(points[:,:3])
 
@@ -123,27 +140,44 @@ def kitti_viewer():
 
     # Preform Trajectory smooting using CCMA to reduce the noise
     for id, class_pos_lst in traffic_participant_positions_Map_all_frames.items(): # key - ID, Value = (class, position_array)
-        # print(id, " : ", pos_lst, type(pos_lst))
+        # print(id, " : ", type(class_pos_lst)) # type of dict
         for class_info, pos_lst in traffic_participant_positions_Map_all_frames[id].items(): 
-            pos_arr = ccma.filter(np.asarray(pos_lst))
+            # print(np.asarray(pos_lst).shape) # (N,4) each ID's path information with (x,y,z,heading_in_rad)
+            pos_arr = np.asarray(pos_lst)
+            pos_arr[:, :3] = ccma.filter(pos_arr[:, :3]) # pass (x,y,z) for smooting
             traffic_participant_positions_Map_all_frames[id][class_info] = pos_arr
             # plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,), marker = 'X') #,label=str(class_info)
 
     # Parase the data into the Pandas DF to write it to CSV
     data_dict = []
     # choose diffent colors for different IDs
-    for id, class_pos_lst in traffic_participant_positions_Map_all_frames.items(): # key - ID, Value = (class, position_array)
+    for id, class_pos_arr in traffic_participant_positions_Map_all_frames.items(): # key - ID, Value = (class, position_array)
         # print(id, " : ", pos_lst, type(pos_lst))
-        for class_info, pos_lst in traffic_participant_positions_Map_all_frames[id].items(): 
-            plt.plot(pos_lst[:, 0], pos_lst[:, 1], lw=2, color = np.random.rand(3,), marker = 'X') #,label=str(class_in
-            # print(pos_lst.shape)
-            data_dict.append({ "Track_ID":id, "vehicle_class":str(class_info), "path":pos_lst})
+        for class_info, pos_arr in traffic_participant_positions_Map_all_frames[id].items(): 
+            x = pos_arr[:, 0]
+            y = pos_arr[:, 1]
+            angles = pos_arr[:, 3]
+            # Compute arrow directions (unit vectors)
+            dx = np.cos(angles)
+            dy = np.sin(angles)
+            plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,), marker = 'X') #,label=str(class_in
+            plt.scatter(pos_arr[0,0], pos_arr[0,1],s=100, marker='D', c='red') # start location
+            plt.scatter(pos_arr[-1,0], pos_arr[-1,1],s=100, marker='D', c='g') # end location
+            # print(pos_arr.shape)
+            # Plot heading arrows
+            plt.quiver(
+                x, y, dx, dy, 
+                angles='xy', scale_units='xy', scale=30, 
+                color='black', width=0.005
+            )
+
+            data_dict.append({ "Track_ID":id, "vehicle_class":str(class_info), "path":pos_arr})
 
     # convert to data frame and store it in CSV
     pd.DataFrame(data_dict).to_csv(res_path, index=False)
     # print(df.head())
     plt.legend()
-    # plt.show()
+    plt.show()
 
 if __name__ == '__main__':
     kitti_viewer()

@@ -41,8 +41,16 @@ def get_mesh_boxes(boxes,
     for i in range(len(boxes)):
         box = boxes[i]
         # print("Box info : ", box)
+        """     X    
+                ^
+                |
+                |
+      Y <_______|
+        Thi is the velo frame on the vehicle, the heading is w.r.t Z axis in velo and y in cam_coords
+        
+        """
         angle = box[6]
-        new_angle = (angle / np.pi) * 180
+        new_angle = (angle / np.pi) * 180 # conversion to degrees
 
         this_c = colors if type(colors) is str else colors[i]
 
@@ -60,7 +68,7 @@ def get_mesh_boxes(boxes,
         if ids is not None and show_ids:
             info = "ID: " + str(ids[i]) + '\n'
         if box_info is not None and show_box_info:
-            info += str(box_info[i])
+            info += str(box_info[i]) + '\n' + f"{new_angle:.2f}"
 
         if info != '':
             label_pos = [box[0], box[1], box[2] + box[5] / 2]
@@ -69,8 +77,8 @@ def get_mesh_boxes(boxes,
 
             position_info =  f"({box[0]:.2}, {box[1]:.2}, {box[2]:.2})"
             # print(position_info)
-            # traffic_participant_positions  sote the (Id, class, position) as a list of Tuples
-            traffic_participant_positions.append(( int(ids[i]) , str(box_info[i]), [ box[0], box[1], box[2], 1.0 ] )) # will be using the Homogenous coord transformation
+            # traffic_participant_positions  sote the (Id, class, position_xyz, heading_yaw_radians) as a list of Tuples
+            traffic_participant_positions.append(( int(ids[i]) , str(box_info[i]), [box[0], box[1], box[2]], angle ))
             label_pos = [box[0], box[1], box[2] + box[5] / 2]
             label = Text3D(position_info, pos=label_pos, s=0.3, c=this_c, font="Calco", justify='centered')
             vtk_boxes_list.append(label)
