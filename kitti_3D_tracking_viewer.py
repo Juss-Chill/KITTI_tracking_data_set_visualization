@@ -9,16 +9,16 @@ from ccma import CCMA
 
 import pandas as pd
 
-def kitti_viewer():
+def kitti_viewer(file_id):
     root=r"/home/asl/Muni/datasets/KITTI/Tracking"
-    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/0000.txt"
-    gps_imu_path = r"/home/asl/Muni/datasets/KITTI/Tracking/GPS_IMU/training/oxts/0000.txt" # relocate this data to Training folder
-    calib_data_path = r"/home/asl/Muni/datasets/KITTI/Tracking/calib/0000.txt"
-    dataset = KittiTrackingDataset(root,seq_id=0,label_path=label_path) # change the sq_id here
-    
+    label_path = r"/home/asl/Muni/datasets/KITTI/Tracking/labels/training/label_02/" + str(file_id) + ".txt"
+    gps_imu_path = r"/home/asl/Muni/datasets/KITTI/Tracking/GPS_IMU/training/oxts/" + str(file_id) + ".txt" # relocate this data to Training folder
+    calib_data_path = r"/home/asl/Muni/datasets/KITTI/Tracking/calib/" + str(file_id) + ".txt"
+
     # Process the path to get the sequence number make it a file name
     seq_id = label_path.split(sep='/')[-1].split(sep='.')[0]
     res_path=r"/home/asl/Muni/datasets/KITTI/Tracking/dataset/" + f"{seq_id}.csv"
+    dataset = KittiTrackingDataset(root,seq_id=seq_id[-1],label_path=label_path) # change the sq_id here
 
 
     traffic_participant_positions_Map_all_frames = {} # key: ID, value: Positions
@@ -151,7 +151,12 @@ def kitti_viewer():
         for class_info, pos_lst in traffic_participant_positions_Map_all_frames[id].items(): 
             # print(np.asarray(pos_lst).shape) # (N,4) each ID's path information with (x,y,z,heading_in_rad)
             pos_arr = np.asarray(pos_lst)
-            pos_arr[:, :3] = ccma.filter(pos_arr[:, :3]) # pass (x,y,z) for smooting
+            
+            try:
+                pos_arr[:, :3] = ccma.filter(pos_arr[:, :3]) # pass (x,y,z) for smooting
+            except:
+                print("CCMA failed")
+
             traffic_participant_positions_Map_all_frames[id][class_info] = pos_arr
             # plt.plot(pos_arr[:, 0], pos_arr[:, 1], lw=2, color = np.random.rand(3,), marker = 'X') #,label=str(class_info)
 
@@ -174,7 +179,7 @@ def kitti_viewer():
             # Plot heading arrows
             plt.quiver(
                 x, y, dx, dy, 
-                angles='xy', scale_units='xy', scale=1, 
+                angles='xy', scale_units='xy', scale=1.5, 
                 color='black', width=0.005
             )
 
@@ -188,4 +193,8 @@ def kitti_viewer():
     plt.show()
 
 if __name__ == '__main__':
-    kitti_viewer()
+    files  =os.listdir("/home/asl/Muni/datasets/KITTI/Tracking/velodyne/")
+    files = sorted(files)
+    for file_name in files:
+        print(f"========================= file : {file_name} ===========================================================")
+        kitti_viewer(file_name)
